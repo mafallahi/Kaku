@@ -89,17 +89,12 @@ Player.prototype._getDefaultVideoJSConfig = function() {
 };
 
 Player.prototype._addPlayerEvents = function() {
-  this._player.on('play', () => {
-    this._updateAppHeader('play');
-  });
-
   this._player.on('timeupdate', () => {
     let time = this._player.currentTime();
     this.playingTrackTime = time || 0;
   });
 
   this._player.on('ended', () => {
-    this._updateAppHeader('ended');
     this.playNextTrack();
   });
 
@@ -169,17 +164,29 @@ Player.prototype.ready = function() {
   }
 };
 
-Player.prototype.addTracks = function(tracks) {
+Player.prototype.addTracks = function(tracks, noUpdate) {
   if (this.disabled) {
     return;
   }
 
-  this.tracks = tracks;
-  this.trackIndex = -1;
-  this.randomIndex = -1;
+  this.tracks = [].concat(this.tracks, tracks);
   this.randomIndexes = this.makeRandomIndexes(this.tracks.length);
 
-  this.emit('tracksUpdated', this.tracks);
+  if (!noUpdate) {
+    this.emit('tracksUpdated', this.tracks);
+  }
+};
+
+Player.prototype.cleanupTracks = function(noUpdate) {
+  if (this.disabled) {
+    return;
+  }
+
+  this.tracks = [];
+
+  if (!noUpdate) {
+    this.emit('tracksUpdated', this.tracks);
+  }
 };
 
 Player.prototype.playNextTrack = function(forceIndex) {
@@ -187,8 +194,11 @@ Player.prototype.playNextTrack = function(forceIndex) {
     return;
   }
 
-  if (forceIndex) {
+  if (typeof forceIndex !== 'undefined') {
     this.trackIndex = Math.max(0, Math.min(forceIndex, this.tracks.length -1));
+    // TODO
+    // double check this randomIndex later
+    this.randomIndex = this.trackIndex;
     this.play(this.tracks[this.trackIndex]);
     return;
   }
@@ -335,22 +345,6 @@ Player.prototype._getRealTrack = function(track) {
       Player.cache[id] = track;
       return Promise.resolve(track);
     });
-  }
-};
-
-Player.prototype._updateAppHeader = function(state) {
-  if (state === 'play' && this.playingTrack && this.playingTrack.title) {
-    let maxLength = 40;
-    let translatedTitle = _('app_title_playing', {
-      name: this.playingTrack.title
-    });
-    if (translatedTitle.length > maxLength) {
-      translatedTitle = translatedTitle.substr(0, maxLength) + ' ...';
-    }
-    AppCore.title = translatedTitle;
-  }
-  else if (state === 'ended') {
-    AppCore.title = _('app_title_normal');
   }
 };
 
